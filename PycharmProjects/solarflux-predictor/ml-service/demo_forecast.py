@@ -39,7 +39,7 @@ def run_zero_shot_forecast():
 
     plt.legend()
     plt.title("Zero-shot прогноз: Chronos-t5-small")
-    plt.savefig("demo_forecast_result.png", dpi=150)
+    plt.savefig("../docs/screenshots/demo_forecast_result.png", dpi=150)
     print("Готово! Результат у demo_forecast_result.png")
 
 if __name__ == "__main__":
