@@ -1,0 +1,17 @@
+target/
+*.class
+
+venv/
+__pycache__/
+*.pyc
+*.png
+
+.cache/
+*.bin
+*.safetensors
+
+.idea/
+*.iml
+.vscode/
+
+.DS_Store
