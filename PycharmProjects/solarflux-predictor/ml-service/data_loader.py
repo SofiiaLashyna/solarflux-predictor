@@ -39,3 +39,13 @@ if __name__ == "__main__":
     print(kp.shape)
     print(kp.describe())
     print(kp.index.to_series().diff().value_counts())
+
+    context_length = 512
+    prediction_length = 8
+
+    context = kp.iloc[-(context_length + prediction_length):-prediction_length]
+    actual_future = kp.iloc[-prediction_length:]
+
+    print("Контекст:", context.shape, context.index.min(), "→", context.index.max())
+    print("Що насправді сталось:", actual_future.shape, actual_future.index.min(), "→", actual_future.index.max())
+    print(actual_future)
