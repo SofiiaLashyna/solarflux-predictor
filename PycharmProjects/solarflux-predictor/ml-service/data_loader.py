@@ -4,6 +4,9 @@ import requests
 KP_URL = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
 
 
+GFZ_URL = "https://kp.gfz.de/app/json/"
+
+
 HEADERS = {"User-Agent": "solarflux-predictor/0.1 (student project)"}
 
 
@@ -17,7 +20,20 @@ def load_kp_series() -> pd.Series:
     df["time_tag"] = pd.to_datetime(df["time_tag"])
     return df.set_index("time_tag")["estimated_kp"].sort_index()
 
+def load_kp_gfz(start: str, end: str) -> pd.Series:
+    params = {"start": start, "end": end, "index": "Kp", "status": "def"}
+    response = requests.get(GFZ_URL, params=params, headers=HEADERS, timeout=30)
+    response.raise_for_status()
+    data = response.json()
+
+    series = pd.Series(
+        data["Kp"],
+        index=pd.to_datetime(data["datetime"]),
+        name="kp",
+    )
+    return series[series >= 0].sort_index()
+
 if __name__ == "__main__":
-    series = load_kp_series()
-    print(series.describe())
-    print(series.index.to_series().diff().value_counts())
+    kp = load_kp_gfz("2025-01-01T00:00:00Z", "2025-01-07T23:59:59Z")
+    print(kp.describe())
+    print(kp.index.to_series().diff().value_counts())
