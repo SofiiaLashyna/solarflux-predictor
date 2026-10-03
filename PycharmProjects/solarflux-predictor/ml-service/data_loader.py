@@ -9,7 +9,7 @@ GFZ_URL = "https://kp.gfz.de/app/json/"
 
 HEADERS = {"User-Agent": "solarflux-predictor/0.1 (student project)"}
 
-
+# Obsolete
 def load_kp_raw() -> pd.DataFrame:
     response = requests.get(KP_URL, headers=HEADERS, timeout=30)
     response.raise_for_status()
@@ -20,6 +20,7 @@ def load_kp_series() -> pd.Series:
     df["time_tag"] = pd.to_datetime(df["time_tag"])
     return df.set_index("time_tag")["estimated_kp"].sort_index()
 
+# New
 def load_kp_gfz(start: str, end: str) -> pd.Series:
     params = {"start": start, "end": end, "index": "Kp", "status": "def"}
     response = requests.get(GFZ_URL, params=params, headers=HEADERS, timeout=30)
@@ -34,6 +35,7 @@ def load_kp_gfz(start: str, end: str) -> pd.Series:
     return series[series >= 0].sort_index()
 
 if __name__ == "__main__":
-    kp = load_kp_gfz("2025-01-01T00:00:00Z", "2025-01-07T23:59:59Z")
+    kp = load_kp_gfz("2021-01-01T00:00:00Z", "2025-12-31T23:59:59Z")
+    print(kp.shape)
     print(kp.describe())
     print(kp.index.to_series().diff().value_counts())
