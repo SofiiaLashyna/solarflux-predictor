@@ -42,3 +42,25 @@
 **Evidence:**
 - Backtest output showing per-window MAE and the final summary (model vs. baseline vs. win rate)
 - `demo_forecast_result.png` — forecast plot with real Kp data and real vs. predicted comparison
+
+## Week 2
+
+**Date:** _13.10_
+
+**Done:**
+- Built the Java core-api (Spring Boot 3.3, Hibernate/JPA) with controller → service → repository layers for Observation, Prediction and User
+- Ran PostgreSQL in Docker and connected it to the core-api; debugged a port conflict with a system-level PostgreSQL service and a timezone-name mismatch between the JVM and the Postgres container
+- Added REST endpoints, including a transactional batch endpoint for observations
+- Loaded 14,608 real Kp-index observations (GFZ Potsdam, 2021–2025, 3-hour resolution) into PostgreSQL via a Python script calling the batch endpoint
+
+**Issues / not yet done:**
+- Predictions are not yet generated or stored through the API; the ML pipeline still runs standalone
+- Kafka, WebSocket, frontend and Docker Compose not started
+- No uniqueness constraint on observations (re-running the loader duplicates rows)
+
+**Risks for next steps:**
+- Wiring Java and Python together (and later Kafka) is the main integration risk; plan is to close the loop DB → model → DB first
+- Only one model compared so far
+
+**Evidence:**
+- PostgreSQL row count and sample query output
