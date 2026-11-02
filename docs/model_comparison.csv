@@ -1,0 +1,4 @@
+model,MAE,beats_persistence_%
+chronos-bolt-small,0.89,63.0
+chronos-t5-small,0.94,57.0
+persistence,1.026,
