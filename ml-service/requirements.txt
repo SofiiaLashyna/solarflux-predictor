@@ -1,7 +1,10 @@
-fastapi==0.115.0
-uvicorn==0.32.0
-pandas==2.2.3
-numpy==1.26.4
-matplotlib==3.9.2
-chronos-forecasting==1.4.1
-torch==2.4.1
+numpy==2.5.3
+pandas==3.0.6
+matplotlib==3.11.2
+requests==2.34.2
+chronos-forecasting==2.3.2
+fastapi==0.141.1
+uvicorn==0.54.0
+
+# torch ставиться окремо (CPU-збірка, без CUDA):
+#   pip install torch --index-url https://download.pytorch.org/whl/cpu
