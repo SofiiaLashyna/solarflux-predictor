@@ -1,0 +1,1 @@
+[{"model":"chronos-bolt-small","MAE":0.89,"beats_persistence_%":63.0},{"model":"chronos-t5-small","MAE":0.94,"beats_persistence_%":57.0},{"model":"persistence","MAE":1.026,"beats_persistence_%":null}]

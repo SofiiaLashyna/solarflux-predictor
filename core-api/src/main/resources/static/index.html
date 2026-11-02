@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="uk">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>SolarFlux Predictor</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4"></script>
+    <style>
+        body { font-family: system-ui, sans-serif; max-width: 960px; margin: 2rem auto; padding: 0 1rem;
+            background: #0b1020; color: #e8ecf5; }
+        .muted { color: #8d96b0; font-size: .9rem; }
+        .card { background: #141b34; border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid #263056; }
+    </style>
+</head>
+<body>
+<h1>☀ SolarFlux Predictor</h1>
+<p class="muted">Kp-індекс геомагнітної активності (GFZ Potsdam). Дані з PostgreSQL через core-api.</p>
+
+<div class="card">
+    <h3>Kp: останні 30 діб у базі</h3>
+    <canvas id="kpChart" height="110"></canvas>
+    <p id="kpInfo" class="muted"></p>
+</div>
+
+<div class="card">
+    <h3>Порівняння моделей (zero-shot, прогноз на 24 год)</h3>
+    <table id="models">
+        <thead><tr><th>Модель</th><th>MAE</th><th>Краща за persistence, %</th></tr></thead>
+        <tbody></tbody>
+    </table>
+    <p class="muted">Метрики згенеровано скриптом ml-service/compare_models.py.</p>
+</div>
+
+<script>
+    Chart.defaults.color = '#c9d1e8';
+    Chart.defaults.borderColor = '#263056';
+
+    async function loadKp() {
+        const res = await fetch('/api/observations?type=KP_INDEX');
+        const all = await res.json();               // від новіших до старіших
+        const last = all.slice(0, 240).reverse();   // 30 діб x 8 точок
+        const labels = last.map(o => new Date(o.timestamp).toLocaleString('uk-UA',
+            { day: '2-digit', month: '2-digit', hour: '2-digit' }));
+        new Chart(document.getElementById('kpChart'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Kp', data: last.map(o => o.value), borderColor: '#ffb347', pointRadius: 0, tension: 0.2 },
+                    { label: 'Поріг бурі G1 (Kp = 5)', data: last.map(() => 5), borderColor: '#ff6b6b',
+                        borderDash: [6, 4], pointRadius: 0 }
+                ]
+            },
+            options: { scales: { y: { min: 0, max: 9 } } }
+        });
+        document.getElementById('kpInfo').textContent =
+            `У базі ${all.length} спостережень. На графіку: ${last[0].timestamp} — ${last[last.length - 1].timestamp}`;
+    }
+
+    async function loadModels() {
+        const res = await fetch('/model_comparison.json');
+        const rows = await res.json();
+        document.querySelector('#models tbody').innerHTML = rows.map(r =>
+            `<tr><td>${r.model}</td><td>${r.MAE}</td><td>${r['beats_persistence_%'] ?? '—'}</td></tr>`).join('');
+    }
+
+    loadKp();
+    loadModels();
+</script>
+</body>
+</html>
