@@ -18,13 +18,11 @@ public class ObservationController {
         this.observationService = observationService;
     }
 
-    @GetMapping
-    public List<Observation> getAllObservations(
-            @RequestParam(required = false) Observation.ObservationType type) {
-        if (type != null) {
-            return observationService.getObservationsByType(type);
-        }
-        return observationService.getAllObservations();
+    @GetMapping("/latest")
+    public List<Observation> getLatest(
+            @RequestParam Observation.ObservationType type,
+            @RequestParam(defaultValue = "512") int limit) {
+        return observationService.getLatest(type, Math.min(limit, 5000));
     }
 
     @PostMapping

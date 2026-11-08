@@ -4,7 +4,8 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "observations")
+@Table(name = "observations", uniqueConstraints =
+@UniqueConstraint(name = "uq_observation", columnNames = {"timestamp", "type", "source"}))
 public class Observation {
 
     @Id
@@ -22,6 +23,12 @@ public class Observation {
     private Double value;
 
     private String source;
+
+    @Column(length = 20)
+    private String status;
+
+    public String getStatus() { return status; }
+    public void setStatus(String status) { this.status = status; }
 
     protected Observation() {
 

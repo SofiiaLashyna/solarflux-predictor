@@ -4,6 +4,7 @@ import com.sofiia.solarflux.model.Observation;
 import com.sofiia.solarflux.repository.ObservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.data.domain.PageRequest;
 
 import java.util.List;
 
@@ -22,6 +23,10 @@ public class ObservationService {
 
     public List<Observation> getObservationsByType(Observation.ObservationType type) {
         return observationRepository.findByTypeOrderByTimestampDesc(type);
+    }
+
+    public List<Observation> getLatest(Observation.ObservationType type, int limit) {
+        return observationRepository.findByTypeOrderByTimestampDesc(type, PageRequest.of(0, limit));
     }
 
     @Transactional

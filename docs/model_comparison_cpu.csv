@@ -1,0 +1,5 @@
+model,MAE,beats_persistence_%,ms_per_window,device
+timesfm-2.5-200m,0.877,61.0,2715.9,cpu
+chronos-bolt-small,0.89,63.0,206.0,cpu
+chronos-t5-small,0.951,56.0,4087.1,cpu
+persistence,1.026,,,cpu
