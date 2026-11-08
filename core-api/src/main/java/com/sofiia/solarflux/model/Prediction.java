@@ -4,66 +4,48 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "predictions")
+@Table(name = "predictions", uniqueConstraints =
+@UniqueConstraint(name = "uq_prediction", columnNames = {"model_name", "base_time", "target_time"}))
 public class Prediction {
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @Column(nullable = false)
-    private Instant timestamp;
+    @Column(name = "model_name", nullable = false)
+    private String modelName;
 
-    @Column(nullable = false)
+    @Column(name = "base_time", nullable = false)
+    private Instant baseTime;
+
+    @Column(name = "target_time", nullable = false)
     private Instant targetTime;
 
     @Column(nullable = false)
-    private Double probability;
+    private Integer step;
 
-    private String modelName;
+    @Column(name = "predicted_value", nullable = false)
+    private Double predictedValue;
+
+    @Column(name = "created_at", nullable = false)
+    private Instant createdAt = Instant.now();
 
     protected Prediction() {
     }
 
-    public Prediction(Instant timestamp, Instant targetTime, Double probability, String modelName) {
-        this.timestamp = timestamp;
-        this.targetTime = targetTime;
-        this.probability = probability;
+    public Prediction(String modelName, Instant baseTime, Instant targetTime, Integer step, Double predictedValue) {
         this.modelName = modelName;
-    }
-
-    public Long getId() {
-        return id;
-    }
-
-    public Instant getTimestamp() {
-        return timestamp;
-    }
-
-    public void setTimestamp(Instant timestamp) {
-        this.timestamp = timestamp;
-    }
-
-    public Instant getTargetTime() {
-        return targetTime;
-    }
-
-    public void setTargetTime(Instant targetTime) {
+        this.baseTime = baseTime;
         this.targetTime = targetTime;
+        this.step = step;
+        this.predictedValue = predictedValue;
     }
 
-    public Double getProbability() {
-        return probability;
-    }
-
-    public void setProbability(Double probability) {
-        this.probability = probability;
-    }
-
-    public String getModelName() {
-        return modelName;
-    }
-
-    public void setModelName(String modelName) {
-        this.modelName = modelName;
-    }
+    public Long getId() { return id; }
+    public String getModelName() { return modelName; }
+    public Instant getBaseTime() { return baseTime; }
+    public Instant getTargetTime() { return targetTime; }
+    public Integer getStep() { return step; }
+    public Double getPredictedValue() { return predictedValue; }
+    public Instant getCreatedAt() { return createdAt; }
 }

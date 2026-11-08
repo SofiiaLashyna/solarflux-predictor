@@ -2,14 +2,18 @@ package com.sofiia.solarflux.service;
 
 import com.sofiia.solarflux.model.Prediction;
 import com.sofiia.solarflux.repository.PredictionRepository;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.List;
 
 @Service
-@Transactional(readOnly = true)
 public class PredictionService {
+
+    private record Key(String model, Instant baseTime) {
+    }
 
     private final PredictionRepository predictionRepository;
 
@@ -17,12 +21,24 @@ public class PredictionService {
         this.predictionRepository = predictionRepository;
     }
 
-    public List<Prediction> getAllPredictions() {
-        return predictionRepository.findAllByOrderByTimestampDesc();
+    @Transactional
+    public List<Prediction> replaceBatch(List<Prediction> predictions) {
+        predictions.stream()
+                .map(p -> new Key(p.getModelName(), p.getBaseTime()))
+                .distinct()
+                .forEach(k -> predictionRepository.deleteBatch(k.model(), k.baseTime()));
+        return predictionRepository.saveAll(predictions);
     }
 
-    @Transactional
-    public Prediction savePrediction(Prediction prediction) {
-        return predictionRepository.save(prediction);
+    @Transactional(readOnly = true)
+    public List<Prediction> getLatest(String model) {
+        return predictionRepository.findLatestBaseTime(model)
+                .map(base -> predictionRepository.findByModelNameAndBaseTimeOrderByTargetTimeAsc(model, base))
+                .orElse(List.of());
+    }
+
+    @Transactional(readOnly = true)
+    public List<Prediction> getHistory(String model, int step, int limit) {
+        return predictionRepository.findByModelNameAndStepOrderByTargetTimeDesc(model, step, PageRequest.of(0, limit));
     }
 }

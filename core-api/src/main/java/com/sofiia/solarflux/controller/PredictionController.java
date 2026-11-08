@@ -18,14 +18,21 @@ public class PredictionController {
         this.predictionService = predictionService;
     }
 
-    @GetMapping
-    public List<Prediction> getAllPredictions() {
-        return predictionService.getAllPredictions();
+    @PostMapping("/batch")
+    public ResponseEntity<Integer> createBatch(@RequestBody List<Prediction> predictions) {
+        return new ResponseEntity<>(predictionService.replaceBatch(predictions).size(), HttpStatus.CREATED);
     }
 
-    @PostMapping
-    public ResponseEntity<Prediction> createPrediction(@RequestBody Prediction prediction) {
-        Prediction savedPrediction = predictionService.savePrediction(prediction);
-        return new ResponseEntity<>(savedPrediction, HttpStatus.CREATED);
+    @GetMapping("/latest")
+    public List<Prediction> getLatest(@RequestParam String model) {
+        return predictionService.getLatest(model);
+    }
+
+    @GetMapping
+    public List<Prediction> getHistory(
+            @RequestParam String model,
+            @RequestParam(defaultValue = "1") int step,
+            @RequestParam(defaultValue = "240") int limit) {
+        return predictionService.getHistory(model, step, Math.min(limit, 2000));
     }
 }
