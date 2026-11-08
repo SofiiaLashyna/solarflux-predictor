@@ -21,8 +21,10 @@ def load_kp_series() -> pd.Series:
     return df.set_index("time_tag")["estimated_kp"].sort_index()
 
 # New
-def load_kp_gfz(start: str, end: str) -> pd.Series:
-    params = {"start": start, "end": end, "index": "Kp", "status": "def"}
+def load_kp_gfz(start: str, end: str, definitive_only: bool = True) -> pd.Series:
+    params = {"start": start, "end": end, "index": "Kp"}
+    if definitive_only:
+        params["status"] = "def"
     response = requests.get(GFZ_URL, params=params, headers=HEADERS, timeout=30)
     response.raise_for_status()
     data = response.json()
