@@ -38,25 +38,30 @@
     Chart.defaults.borderColor = '#263056';
 
     async function loadKp() {
-        const res = await fetch('/api/observations?type=KP_INDEX');
-        const all = await res.json();               // від новіших до старіших
-        const last = all.slice(0, 240).reverse();   // 30 діб x 8 точок
-        const labels = last.map(o => new Date(o.timestamp).toLocaleString('uk-UA',
-            { day: '2-digit', month: '2-digit', hour: '2-digit' }));
-        new Chart(document.getElementById('kpChart'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Kp', data: last.map(o => o.value), borderColor: '#ffb347', pointRadius: 0, tension: 0.2 },
-                    { label: 'Поріг бурі G1 (Kp = 5)', data: last.map(() => 5), borderColor: '#ff6b6b',
-                        borderDash: [6, 4], pointRadius: 0 }
-                ]
-            },
-            options: { scales: { y: { min: 0, max: 9 } } }
-        });
-        document.getElementById('kpInfo').textContent =
-            `У базі ${all.length} спостережень. На графіку: ${last[0].timestamp} — ${last[last.length - 1].timestamp}`;
+        const info = document.getElementById('kpInfo');
+        try {
+            const res = await fetch('/api/observations/latest?type=KP_INDEX&limit=240');
+            if (!res.ok) throw new Error('API відповів ' + res.status);
+            const last = (await res.json()).reverse();   // від старих до нових
+            const labels = last.map(o => new Date(o.timestamp).toLocaleString('uk-UA',
+                { day: '2-digit', month: '2-digit', hour: '2-digit' }));
+            new Chart(document.getElementById('kpChart'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Kp', data: last.map(o => o.value), borderColor: '#ffb347', pointRadius: 0, tension: 0.2 },
+                        { label: 'Поріг бурі G1 (Kp = 5)', data: last.map(() => 5), borderColor: '#ff6b6b',
+                            borderDash: [6, 4], pointRadius: 0 }
+                    ]
+                },
+                options: { scales: { y: { min: 0, max: 9 } } }
+            });
+            const newest = last[last.length - 1];
+            info.textContent = `Останнє значення: ${newest.timestamp}, Kp = ${newest.value} (${newest.status})`;
+        } catch (e) {
+            info.textContent = 'Не вдалося завантажити Kp: ' + e.message;
+        }
     }
 
     async function loadModels() {
