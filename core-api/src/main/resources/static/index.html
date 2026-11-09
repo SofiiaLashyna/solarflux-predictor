@@ -12,6 +12,12 @@
         .card { background: #141b34; border-radius: 12px; padding: 1rem 1.25rem; margin: 1rem 0; }
         table { width: 100%; border-collapse: collapse; }
         th, td { text-align: left; padding: .5rem .4rem; border-bottom: 1px solid #263056; }
+        .buttons { display: flex; gap: .5rem; flex-wrap: wrap; margin: .5rem 0 1rem; }
+        button { background: #1c2547; color: #e8ecf5; border: 1px solid #2e3a6b; border-radius: 8px;
+            padding: .4rem .8rem; cursor: pointer; }
+        button.active { background: #ffb347; color: #0b1020; border-color: #ffb347; }
+        select { background: #1c2547; color: #e8ecf5; border: 1px solid #2e3a6b; border-radius: 8px;
+            padding: .35rem .6rem; }
     </style>
 </head>
 <body>
@@ -19,7 +25,9 @@
 <p class="muted">Kp-індекс геомагнітної активності (GFZ Potsdam). Дані з PostgreSQL через core-api.</p>
 
 <div class="card">
-    <h3>Kp: останні 30 діб у базі</h3>
+    <h3>Kp: історія та прогноз</h3>
+    <div id="modelButtons" class="buttons"></div>
+    <div class="buttons"><span class="muted">Прогноз зроблено:</span> <select id="baseSelect"></select></div>
     <canvas id="kpChart" height="110"></canvas>
     <p id="kpInfo" class="muted"></p>
 </div>
@@ -37,30 +45,108 @@
     Chart.defaults.color = '#c9d1e8';
     Chart.defaults.borderColor = '#263056';
 
+    const MODELS = {
+        'timesfm-2.5-200m': 'TimesFM 2.5',
+        'chronos-bolt-small': 'Chronos-Bolt',
+        'chronos-t5-small': 'Chronos-T5',
+        'persistence': 'Persistence (базлайн)'
+    };
+    let chart = null;
+    let history = [];
+    const cache = {};
+    let current = 'chronos-bolt-small';
+    let currentBase = null;
+    const bases = {};
+
+    function fmt(ts) {
+        return new Date(ts).toLocaleString('uk-UA', { day: '2-digit', month: '2-digit', hour: '2-digit' });
+    }
+
+    function render() {
+        const preds = currentBase ? (cache[current + '|' + currentBase] || []) : [];
+        const histMap = new Map(history.map(o => [new Date(o.timestamp).getTime(), o.value]));
+        const predMap = new Map(preds.map(p => [new Date(p.targetTime).getTime(), p.predictedValue]));
+        if (preds.length) {
+            const base = new Date(preds[0].baseTime).getTime();
+            if (histMap.has(base)) predMap.set(base, histMap.get(base));
+        }
+        const times = [...new Set([...histMap.keys(), ...predMap.keys()])].sort((a, b) => a - b);
+        chart.data.labels = times.map(fmt);
+        chart.data.datasets[0].data = times.map(t => histMap.has(t) ? histMap.get(t) : null);
+        chart.data.datasets[1].data = times.map(t => predMap.has(t) ? predMap.get(t) : null);
+        chart.data.datasets[1].label = 'Прогноз: ' + MODELS[current];
+        chart.data.datasets[2].data = times.map(() => 5);
+        chart.update();
+
+        const last = history[history.length - 1];
+        let text = `Останній факт: ${fmt(last.timestamp)}, Kp = ${last.value} (${last.status})`;
+        if (preds.length) {
+            const vals = preds.map(p => p.predictedValue);
+            const avg = (vals.reduce((a, b) => a + b, 0) / vals.length).toFixed(1);
+            text += `. Прогноз від ${fmt(preds[0].baseTime)} до ${fmt(preds[preds.length - 1].targetTime)} (${preds.length} кроків × 3 год): середнє Kp ${avg}, максимум ${Math.max(...vals).toFixed(1)}`;
+        } else {
+            text += '. Для цієї моделі ще немає збережених прогнозів';
+        }
+        document.getElementById('kpInfo').textContent = text;
+    }
+
+    async function showForecast() {
+        const key = current;
+        if (!bases[key]) {
+            const res = await fetch('/api/predictions/bases?model=' + encodeURIComponent(key));
+            bases[key] = res.ok ? await res.json() : [];
+        }
+        const sel = document.getElementById('baseSelect');
+        sel.innerHTML = bases[key].map(b => `<option value="${b}">${fmt(b)}</option>`).join('');
+        if (!bases[key].includes(currentBase)) currentBase = bases[key][0] || null;
+        sel.value = currentBase || '';
+
+        const ck = key + '|' + currentBase;
+        if (currentBase && !cache[ck]) {
+            const res = await fetch(`/api/predictions/batch?model=${encodeURIComponent(key)}&baseTime=${encodeURIComponent(currentBase)}`);
+            cache[ck] = res.ok ? await res.json() : [];
+        }
+        document.querySelectorAll('#modelButtons button')
+            .forEach(b => b.classList.toggle('active', b.dataset.model === key));
+        render();
+    }
+
+    function selectModel(key) {
+        current = key;
+        return showForecast();
+    }
+
     async function loadKp() {
         const info = document.getElementById('kpInfo');
         try {
-            const res = await fetch('/api/observations/latest?type=KP_INDEX&limit=240');
+            const res = await fetch('/api/observations/latest?type=KP_INDEX&limit=96');
             if (!res.ok) throw new Error('API відповів ' + res.status);
-            const last = (await res.json()).reverse();   // від старих до нових
-            const labels = last.map(o => new Date(o.timestamp).toLocaleString('uk-UA',
-                { day: '2-digit', month: '2-digit', hour: '2-digit' }));
-            new Chart(document.getElementById('kpChart'), {
+            history = (await res.json()).reverse();
+
+            chart = new Chart(document.getElementById('kpChart'), {
                 type: 'line',
                 data: {
-                    labels,
+                    labels: [],
                     datasets: [
-                        { label: 'Kp', data: last.map(o => o.value), borderColor: '#ffb347', pointRadius: 0, tension: 0.2 },
-                        { label: 'Поріг бурі G1 (Kp = 5)', data: last.map(() => 5), borderColor: '#ff6b6b',
-                            borderDash: [6, 4], pointRadius: 0 }
+                        { label: 'Kp (факт)', data: [], borderColor: '#ffb347', pointRadius: 0, tension: 0.2 },
+                        { label: 'Прогноз', data: [], borderColor: '#4dd0e1', borderDash: [4, 3], pointRadius: 3, tension: 0.2 },
+                        { label: 'Поріг бурі G1 (Kp = 5)', data: [], borderColor: '#ff6b6b', borderDash: [6, 4], pointRadius: 0 }
                     ]
                 },
                 options: { scales: { y: { min: 0, max: 9 } } }
             });
-            const newest = last[last.length - 1];
-            info.textContent = `Останнє значення: ${newest.timestamp}, Kp = ${newest.value} (${newest.status})`;
+
+            const box = document.getElementById('modelButtons');
+            Object.entries(MODELS).forEach(([key, name]) => {
+                const b = document.createElement('button');
+                b.textContent = name;
+                b.dataset.model = key;
+                b.onclick = () => selectModel(key);
+                box.appendChild(b);
+            });
+            await selectModel(current);
         } catch (e) {
-            info.textContent = 'Не вдалося завантажити Kp: ' + e.message;
+            info.textContent = 'Не вдалося завантажити дані: ' + e.message;
         }
     }
 
@@ -70,7 +156,7 @@
         document.querySelector('#models tbody').innerHTML = rows.map(r =>
             `<tr><td>${r.model}</td><td>${r.MAE}</td><td>${r['beats_persistence_%'] ?? '—'}</td></tr>`).join('');
     }
-
+    document.getElementById('baseSelect').onchange = e => { currentBase = e.target.value; showForecast(); };
     loadKp();
     loadModels();
 </script>
