@@ -7,6 +7,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.time.Instant;
 
 @RestController
 @RequestMapping("/api/predictions")
@@ -34,5 +35,15 @@ public class PredictionController {
             @RequestParam(defaultValue = "1") int step,
             @RequestParam(defaultValue = "240") int limit) {
         return predictionService.getHistory(model, step, Math.min(limit, 2000));
+    }
+
+    @GetMapping("/bases")
+    public List<Instant> getBases(@RequestParam String model, @RequestParam(defaultValue = "30") int limit) {
+        return predictionService.getBaseTimes(model, Math.min(limit, 200));
+    }
+
+    @GetMapping("/batch")
+    public List<Prediction> getBatch(@RequestParam String model, @RequestParam Instant baseTime) {
+        return predictionService.getBatch(model, baseTime);
     }
 }

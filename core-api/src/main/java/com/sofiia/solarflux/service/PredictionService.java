@@ -41,4 +41,14 @@ public class PredictionService {
     public List<Prediction> getHistory(String model, int step, int limit) {
         return predictionRepository.findByModelNameAndStepOrderByTargetTimeDesc(model, step, PageRequest.of(0, limit));
     }
+
+    @Transactional(readOnly = true)
+    public List<Instant> getBaseTimes(String model, int limit) {
+        return predictionRepository.findBaseTimes(model, PageRequest.of(0, limit));
+    }
+
+    @Transactional(readOnly = true)
+    public List<Prediction> getBatch(String model, Instant baseTime) {
+        return predictionRepository.findByModelNameAndBaseTimeOrderByTargetTimeAsc(model, baseTime);
+    }
 }

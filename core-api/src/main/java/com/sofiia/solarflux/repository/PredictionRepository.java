@@ -22,6 +22,9 @@ public interface PredictionRepository extends JpaRepository<Prediction, Long> {
     @Query("select max(p.baseTime) from Prediction p where p.modelName = :model")
     Optional<Instant> findLatestBaseTime(@Param("model") String model);
 
+    @Query("select distinct p.baseTime from Prediction p where p.modelName = :model order by p.baseTime desc")
+    List<Instant> findBaseTimes(@Param("model") String model, Pageable pageable);
+
     List<Prediction> findByModelNameAndBaseTimeOrderByTargetTimeAsc(String modelName, Instant baseTime);
 
     List<Prediction> findByModelNameAndStepOrderByTargetTimeDesc(String modelName, Integer step, Pageable pageable);
