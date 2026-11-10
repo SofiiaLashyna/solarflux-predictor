@@ -52,4 +52,9 @@ public class PredictionController {
     public List<Map<String, Object>> getAccuracy() {
         return predictionService.getAccuracy();
     }
+
+    @GetMapping("/accuracy-by-step")
+    public List<Map<String, Object>> getAccuracyByStep() {
+        return predictionService.getAccuracyByStep();
+    }
 }

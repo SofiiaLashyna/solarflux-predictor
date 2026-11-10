@@ -32,6 +32,11 @@ public class PredictionService {
         return accuracyRepository.accuracyByModel();
     }
 
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAccuracyByStep() {
+        return accuracyRepository.accuracyByStep();
+    }
+
     @Transactional
     public List<Prediction> replaceBatch(List<Prediction> predictions) {
         predictions.stream()

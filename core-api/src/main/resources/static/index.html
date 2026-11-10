@@ -41,6 +41,12 @@
     <p class="muted">Бектест: 100 вікон, 2021–2025 (ml-service/compare_models.py). Живі прогнози: збережені прогнози, порівняні з фактом із бази, лише на точках, спільних для всіх моделей. Поки точок мало, це ілюстрація, а не висновок.</p>
 </div>
 
+<div class="card">
+    <h3>Точність за горизонтом (живі прогнози)</h3>
+    <canvas id="stepChart" height="90"></canvas>
+    <p id="stepInfo" class="muted"></p>
+</div>
+
 <script>
     Chart.defaults.color = '#c9d1e8';
     Chart.defaults.borderColor = '#263056';
@@ -162,6 +168,39 @@
                     <td>${l ? l.mae : '—'}</td><td>${l ? l.n : '—'}</td></tr>`;
         }).join('');
     }
+
+    async function loadStepAccuracy() {
+        const res = await fetch('/api/predictions/accuracy-by-step');
+        const rows = res.ok ? await res.json() : [];
+        const info = document.getElementById('stepInfo');
+        if (!rows.length) {
+            info.textContent = 'Поки немає підтверджених прогнозів';
+            return;
+        }
+        const steps = [...new Set(rows.map(r => r.step))].sort((a, b) => a - b);
+        const models = [...new Set(rows.map(r => r.model_name))];
+        const colors = ['#4dd0e1', '#ffb347', '#a78bfa', '#8d96b0'];
+        new Chart(document.getElementById('stepChart'), {
+            type: 'line',
+            data: {
+                labels: steps.map(s => `+${s * 3} год`),
+                datasets: models.map((m, i) => ({
+                    label: m,
+                    data: steps.map(s => {
+                        const r = rows.find(x => x.model_name === m && x.step === s);
+                        return r ? Number(r.mae) : null;
+                    }),
+                    borderColor: colors[i % colors.length],
+                    tension: 0.2
+                }))
+            },
+            options: { scales: { y: { beginAtZero: true, title: { display: true, text: 'MAE (Kp)' } } } }
+        });
+        info.textContent = 'Точок на крок: ' +
+            steps.map(s => rows.find(r => r.step === s).n).join(', ') +
+            '. Поки точок мало, це ілюстрація, а не висновок.';
+    }
+
     document.getElementById('baseSelect').onchange = e => { currentBase = e.target.value; showForecast(); };
     loadKp();
     loadModels();
