@@ -35,10 +35,10 @@
 <div class="card">
     <h3>Порівняння моделей (zero-shot, прогноз на 24 год)</h3>
     <table id="models">
-        <thead><tr><th>Модель</th><th>MAE</th><th>Краща за persistence, %</th></tr></thead>
+        <thead><tr><th>Модель</th><th>MAE (бектест)</th><th>Краща за persistence, %</th><th>MAE (живі прогнози)</th><th>Точок</th></tr></thead>
         <tbody></tbody>
     </table>
-    <p class="muted">Метрики згенеровано скриптом ml-service/compare_models.py.</p>
+    <p class="muted">Бектест: 100 вікон, 2021–2025 (ml-service/compare_models.py). Живі прогнози: збережені прогнози, порівняні з фактом із бази, лише на точках, спільних для всіх моделей. Поки точок мало, це ілюстрація, а не висновок.</p>
 </div>
 
 <script>
@@ -151,10 +151,16 @@
     }
 
     async function loadModels() {
-        const res = await fetch('/model_comparison.json');
-        const rows = await res.json();
-        document.querySelector('#models tbody').innerHTML = rows.map(r =>
-            `<tr><td>${r.model}</td><td>${r.MAE}</td><td>${r['beats_persistence_%'] ?? '—'}</td></tr>`).join('');
+        const [bt, live] = await Promise.all([
+            fetch('/model_comparison.json').then(r => r.json()),
+            fetch('/api/predictions/accuracy').then(r => r.ok ? r.json() : []).catch(() => [])
+        ]);
+        const liveBy = Object.fromEntries(live.map(r => [r.model_name, r]));
+        document.querySelector('#models tbody').innerHTML = bt.map(r => {
+            const l = liveBy[r.model];
+            return `<tr><td>${r.model}</td><td>${r.MAE}</td><td>${r['beats_persistence_%'] ?? '—'}</td>
+                    <td>${l ? l.mae : '—'}</td><td>${l ? l.n : '—'}</td></tr>`;
+        }).join('');
     }
     document.getElementById('baseSelect').onchange = e => { currentBase = e.target.value; showForecast(); };
     loadKp();
