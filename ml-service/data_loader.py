@@ -9,18 +9,6 @@ GFZ_URL = "https://kp.gfz.de/app/json/"
 
 HEADERS = {"User-Agent": "solarflux-predictor/0.1 (student project)"}
 
-# Obsolete
-def load_kp_raw() -> pd.DataFrame:
-    response = requests.get(KP_URL, headers=HEADERS, timeout=30)
-    response.raise_for_status()
-    return pd.DataFrame(response.json())
-
-def load_kp_series() -> pd.Series:
-    df = load_kp_raw()
-    df["time_tag"] = pd.to_datetime(df["time_tag"])
-    return df.set_index("time_tag")["estimated_kp"].sort_index()
-
-# New
 def load_kp_gfz(start: str, end: str, definitive_only: bool = True) -> pd.Series:
     params = {"start": start, "end": end, "index": "Kp"}
     if definitive_only:
