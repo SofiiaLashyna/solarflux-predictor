@@ -1,9 +1,11 @@
 package com.sofiia.solarflux.service;
-
 import com.sofiia.solarflux.model.Observation;
 import com.sofiia.solarflux.model.Prediction;
 import com.sofiia.solarflux.repository.ObservationRepository;
 import com.sofiia.solarflux.repository.PredictionRepository;
+import com.sofiia.solarflux.messaging.ForecastCreatedEvent;
+import com.sofiia.solarflux.messaging.ForecastEventPublisher;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Value;
@@ -36,6 +38,7 @@ public class ForecastService {
     private final ObservationRepository observationRepository;
     private final PredictionRepository predictionRepository;
     private final PredictionService predictionService;
+    private final ForecastEventPublisher eventPublisher;
     private final RestClient restClient;
     private final List<String> models;
     private final int horizon;
@@ -44,7 +47,7 @@ public class ForecastService {
 
     public ForecastService(ObservationRepository observationRepository,
                            PredictionRepository predictionRepository,
-                           PredictionService predictionService,
+                           PredictionService predictionService, ForecastEventPublisher eventPublisher,
                            @Value("${forecast.service-url}") String serviceUrl,
                            @Value("${forecast.models}") List<String> models,
                            @Value("${forecast.horizon}") int horizon,
@@ -52,6 +55,7 @@ public class ForecastService {
         this.observationRepository = observationRepository;
         this.predictionRepository = predictionRepository;
         this.predictionService = predictionService;
+        this.eventPublisher = eventPublisher;
         this.models = models;
         this.horizon = horizon;
         this.contextLength = contextLength;
@@ -112,6 +116,7 @@ public class ForecastService {
                 }
             }
             predictionService.replaceBatch(predictions);
+            eventPublisher.publish(new ForecastCreatedEvent(base, pending, predictions.size()));
             log.info("Автопрогноз від {}: збережено {} прогнозів для {}", base, predictions.size(), pending);
             return predictions.size();
         } finally {

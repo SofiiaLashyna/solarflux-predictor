@@ -12,6 +12,14 @@ spring:
     properties:
       hibernate:
         format_sql: true
+  kafka:
+    bootstrap-servers: localhost:9092
+    consumer:
+      group-id: solarflux-core-api
+      auto-offset-reset: latest
+    producer:
+      properties:
+        max.block.ms: 5000
 
 server:
   port: 8080
