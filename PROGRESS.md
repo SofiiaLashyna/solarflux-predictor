@@ -64,3 +64,26 @@
 
 **Evidence:**
 - PostgreSQL row count and sample query output
+
+## Weeks 3–4 (up to 10 Nov 2026)
+
+**Done:**
+- Extended the benchmark to three zero-shot models (Chronos-T5-small, Chronos-Bolt-small, TimesFM 2.5) against a persistence baseline: 100 rolling windows spread evenly over 2021–2025, 24 h horizon. MAE / share of windows better than persistence: TimesFM 0.877 / 61%, Bolt 0.890 / 63%, T5 0.951 / 56%, persistence 1.026.
+- Added CPU/GPU auto-detection and per-window timing to the benchmark (GPU run still to be done in Colab).
+- Core API: scheduled GFZ synchronization (on startup and hourly) with a JDBC batch upsert, a status column (definitive / preliminary) and uniqueness constraints; endpoint for the latest N observations.
+- Predictions: redesigned the Prediction entity (model, base time, target time, step, value) and added batch, latest, issue-time and history endpoints; batch writes are idempotent.
+- ML microservice (FastAPI) with models preloaded at startup; a Java scheduler calls it automatically when new data arrive, so forecast batches are stored without manual runs.
+- Live accuracy report (JDBC join restricted to targets forecast by every model) and a dashboard with history, forecast line, model selector, forecast issue-time selector and backtest-vs-live table.
+- Analytics from the database: Kp ≥ 5 intervals per year grew from 26 (2021) to 156 (2025), consistent with the rising phase of solar cycle 25; not claimed as a long-term trend.
+
+**Issues / not yet done:**
+- Live accuracy is based on very few points so far; it needs days of automatic runs.
+- GPU run and Lag-Llama not done yet.
+- Kafka, WebSocket, user subscriptions, Docker Compose and unit tests not started.
+- Forecasts mostly follow the recent level; sudden storms cannot be predicted from Kp history alone.
+
+**Next:**
+- Accuracy broken down by forecast step, Kafka + WebSocket notifications, rotating-Earth visualization, extra input data (solar wind).
+
+**Evidence:**
+- docs/model_comparison_cpu.csv, SQL outputs, dashboard screenshot.
