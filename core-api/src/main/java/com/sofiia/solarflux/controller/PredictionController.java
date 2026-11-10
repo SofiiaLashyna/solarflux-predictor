@@ -8,6 +8,7 @@ import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 import java.time.Instant;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/predictions")
@@ -45,5 +46,10 @@ public class PredictionController {
     @GetMapping("/batch")
     public List<Prediction> getBatch(@RequestParam String model, @RequestParam Instant baseTime) {
         return predictionService.getBatch(model, baseTime);
+    }
+
+    @GetMapping("/accuracy")
+    public List<Map<String, Object>> getAccuracy() {
+        return predictionService.getAccuracy();
     }
 }

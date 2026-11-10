@@ -6,6 +6,9 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import com.sofiia.solarflux.repository.AccuracyJdbcRepository;
+import java.util.Map;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -17,8 +20,16 @@ public class PredictionService {
 
     private final PredictionRepository predictionRepository;
 
-    public PredictionService(PredictionRepository predictionRepository) {
+    private final AccuracyJdbcRepository accuracyRepository;
+
+    public PredictionService(PredictionRepository predictionRepository, AccuracyJdbcRepository accuracyRepository) {
         this.predictionRepository = predictionRepository;
+        this.accuracyRepository = accuracyRepository;
+    }
+
+    @Transactional(readOnly = true)
+    public List<Map<String, Object>> getAccuracy() {
+        return accuracyRepository.accuracyByModel();
     }
 
     @Transactional
