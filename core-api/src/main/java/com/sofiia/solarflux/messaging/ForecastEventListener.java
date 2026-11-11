@@ -10,8 +10,15 @@ public class ForecastEventListener {
 
     private static final Logger log = LoggerFactory.getLogger(ForecastEventListener.class);
 
+    private final ForecastWebSocketHandler webSocketHandler;
+
+    public ForecastEventListener(ForecastWebSocketHandler webSocketHandler) {
+        this.webSocketHandler = webSocketHandler;
+    }
+
     @KafkaListener(topics = ForecastEventPublisher.TOPIC)
     public void onForecastCreated(String payload) {
         log.info("Отримано подію з Kafka: {}", payload);
+        webSocketHandler.broadcast("{\"type\":\"forecast.created\",\"data\":" + payload + "}");
     }
 }
