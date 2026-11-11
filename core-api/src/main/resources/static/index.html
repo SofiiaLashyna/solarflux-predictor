@@ -23,6 +23,7 @@
 <body>
 <h1>☀ SolarFlux Predictor</h1>
 <p class="muted">Kp-індекс геомагнітної активності (GFZ Potsdam). Дані з PostgreSQL через core-api.</p>
+<p id="liveStatus" class="muted">⚪ Живе оновлення: підключення…</p>
 
 <div class="card">
     <h3>Kp: історія та прогноз</h3>
@@ -58,6 +59,7 @@
         'persistence': 'Persistence (базлайн)'
     };
     let chart = null;
+    let stepChart = null;
     let history = [];
     const cache = {};
     let current = 'chronos-bolt-small';
@@ -122,12 +124,16 @@
         return showForecast();
     }
 
+    async function loadHistory() {
+        const res = await fetch('/api/observations/latest?type=KP_INDEX&limit=96');
+        if (!res.ok) throw new Error('API відповів ' + res.status);
+        history = (await res.json()).reverse();
+    }
+
     async function loadKp() {
         const info = document.getElementById('kpInfo');
         try {
-            const res = await fetch('/api/observations/latest?type=KP_INDEX&limit=96');
-            if (!res.ok) throw new Error('API відповів ' + res.status);
-            history = (await res.json()).reverse();
+            await loadHistory();
 
             chart = new Chart(document.getElementById('kpChart'), {
                 type: 'line',
@@ -180,7 +186,8 @@
         const steps = [...new Set(rows.map(r => r.step))].sort((a, b) => a - b);
         const models = [...new Set(rows.map(r => r.model_name))];
         const colors = ['#4dd0e1', '#ffb347', '#a78bfa', '#8d96b0'];
-        new Chart(document.getElementById('stepChart'), {
+        if (stepChart) stepChart.destroy();
+        stepChart = new Chart(document.getElementById('stepChart'), {
             type: 'line',
             data: {
                 labels: steps.map(s => `+${s * 3} год`),
@@ -201,9 +208,44 @@
             '. Поки точок мало, це ілюстрація, а не висновок.';
     }
 
+    async function refreshAll() {
+        if (!chart) return;
+        try {
+            await loadHistory();
+            Object.keys(cache).forEach(k => delete cache[k]);
+            Object.keys(bases).forEach(k => delete bases[k]);
+            currentBase = null;   // перейти на найсвіжіший прогноз
+            await showForecast();
+            await loadModels();
+            await loadStepAccuracy();
+        } catch (e) {
+            document.getElementById('kpInfo').textContent = 'Не вдалося оновити: ' + e.message;
+        }
+    }
+
+    function connectLive() {
+        const proto = location.protocol === 'https:' ? 'wss' : 'ws';
+        const ws = new WebSocket(`${proto}://${location.host}/ws/forecasts`);
+        const status = document.getElementById('liveStatus');
+        ws.onopen = () => { status.textContent = '🟢 Живе оновлення: підключено'; };
+        ws.onmessage = async (e) => {
+            const msg = JSON.parse(e.data);
+            if (msg.type === 'forecast.created') {
+                status.textContent = `🟢 Новий прогноз від ${fmt(msg.data.baseTime)} (отримано о ${new Date().toLocaleTimeString('uk-UA')})`;
+                await refreshAll();
+            }
+        };
+        ws.onclose = () => {
+            status.textContent = '🔴 З’єднання втрачено, повтор через 5 с';
+            setTimeout(connectLive, 5000);
+        };
+    }
+
     document.getElementById('baseSelect').onchange = e => { currentBase = e.target.value; showForecast(); };
+    connectLive();
     loadKp();
     loadModels();
+    loadStepAccuracy();
 </script>
 </body>
 </html>
