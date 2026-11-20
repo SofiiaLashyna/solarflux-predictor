@@ -20,9 +20,10 @@
         button.active { background: #ffb347; color: #0b1020; border-color: #ffb347; }
         select { background: #1c2547; color: #e8ecf5; border: 1px solid #2e3a6b; border-radius: 8px;
             padding: .35rem .6rem; }
-        .globe-wrap { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; }
-        #globe { width: 100%; max-width: 420px; height: auto; background: #070a16; border-radius: 12px; }
-        input[type=range] { width: 260px; }
+        .globe-wrap { display: flex; gap: 1.5rem; align-items: flex-start; flex-wrap: wrap; }
+        #globe { flex: 0 1 420px; width: 100%; max-width: 420px; height: auto; background: #070a16; border-radius: 12px; }
+        .globe-side { flex: 1 1 300px; min-width: 0; }
+        input[type=range] { width: 100%; max-width: 360px; }
     </style>
 </head>
 <body>
@@ -42,11 +43,12 @@
     <h3>Земля: кільце полярного сяйва</h3>
     <div class="globe-wrap">
         <canvas id="globe" width="420" height="420"></canvas>
-        <div>
+        <div class="globe-side">
             <p class="muted">Прогноз: модель з кнопок над графіком</p>
             <input type="range" id="stepSlider" min="0" max="8" value="0">
             <p class="muted">0 = зараз, 1–8 = +3 … +24 год</p>
             <p id="globeInfo"></p>
+            <table id="globeTable" class="muted"></table>
             <p class="muted">Спрощено: кільце навколо геомагнітного полюса, межа ≈ 66° − 2° × Kp (опівночі). Зелене: спокійно, червоне: буря (Kp ≥ 5).</p>
         </div>
     </div>
@@ -138,6 +140,7 @@
         }
         document.querySelectorAll('#modelButtons button')
             .forEach(b => b.classList.toggle('active', b.dataset.model === key));
+        await loadAllForBase();
         render();
     }
 
@@ -328,8 +331,24 @@
             label = `${MODELS[current]}, ${fmt(p.targetTime)} (+${step * 3} год): Kp ≈ ${kp.toFixed(1)}`;
         }
         globeKp = kp;
+        document.getElementById('globeTable').innerHTML = step === 0 ? '' :
+            '<tr><th>Модель</th><th>Kp</th></tr>' + Object.entries(MODELS).map(([key, name]) => {
+                const p = (cache[key + '|' + currentBase] || [])[step - 1];
+                return `<tr><td>${name}</td><td>${p ? p.predictedValue.toFixed(1) : '—'}</td></tr>`;
+            }).join('');
         document.getElementById('globeInfo').innerHTML =
             `${label}<br>Межа сяйва: ≈ ${auroraBoundaryLat(kp).toFixed(0)}° геомагнітної широти`;
+    }
+
+    async function loadAllForBase() {
+        if (!currentBase) return;
+        await Promise.all(Object.keys(MODELS).map(async key => {
+            const ck = key + '|' + currentBase;
+            if (!cache[ck]) {
+                const res = await fetch(`/api/predictions/batch?model=${encodeURIComponent(key)}&baseTime=${encodeURIComponent(currentBase)}`);
+                cache[ck] = res.ok ? await res.json() : [];
+            }
+        }));
     }
 
     document.getElementById('stepSlider').oninput = updateGlobe;
