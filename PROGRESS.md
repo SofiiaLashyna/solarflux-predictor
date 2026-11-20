@@ -87,3 +87,28 @@
 
 **Evidence:**
 - docs/model_comparison_cpu.csv, SQL outputs, dashboard screenshot.
+
+## Weeks 5–6 (10–20 Nov 2026)
+
+**Done:**
+- Live accuracy by forecast lead time (JDBC report and chart): each model's error at +3 h … +24 h, computed on stored live forecasts.
+- Event-driven pipeline: single-node Kafka broker (Docker Compose); after each forecast batch the core-api publishes a `forecast.created` event, a consumer broadcasts it over WebSocket, and the dashboard refreshes itself without a reload.
+- Dashboard: rotating Earth (D3) with an aurora ring whose size follows Kp (observed or forecast, any model, +0 … +24 h), a per-model Kp table, and a responsive layout.
+- Repository hygiene: removed superseded scripts, raw datasets excluded from Git, retry logic for HTTP responses that break mid-transfer, a data-sources document with licences and credits.
+- Solar-flare work (requirement for lab 3):
+  - Kp autocorrelation shows a clear 27-day peak (about 0.17 against about 0.06 on neighbouring lags) and a second peak at 54 days, consistent with recurrence from solar rotation.
+  - After M/X-class flares (5,277 events, 2000–2025, NCEI GOES flare report) the probability of Kp ≥ 5 in the following 24 h windows is 1.4–1.7 times the same-year base rate, highest 48–72 h after the flare (consistent with CME transit times). Pre-flare control windows added to check for clustering; results to be recorded.
+  - Explored NOAA SWPC solar regions and official flare probabilities, NASA DONKI (flares, CMEs, storms, linked events) and SILSO sunspot numbers. DONKI moved to a new API on 30 Sep 2026 (old endpoints no longer return data); the client was updated.
+  - Implemented a CME transit-time estimate (constant speed vs drag-based model) and compared it with NASA's WSA-ENLIL estimate on one event (May 2024): errors about −12 h, +1 h and −4 h respectively against the observed shock; a single event, so calibration on 2021–2025 CMEs is the next step.
+
+**Issues / not yet done:**
+- Flare probability model (daily, full-disk) and the CME calibration are not done. SWPC's active-region file keeps only ~31 days, so region-level training is out of scope for now.
+- GPU benchmark (Colab), Lag-Llama, user subscriptions, full-stack Docker Compose, unit tests, servlet filter and GoF patterns are still to do.
+- PostgreSQL runs in a standalone container without a volume: observations can be re-synchronised from GFZ, but stored forecasts would be lost if the container is removed.
+- Live accuracy is still based on few points.
+
+**Next:**
+- Collect CMEs for 2021–2025 from DONKI and calibrate the drag-based model against constant speed and ENLIL; daily flare-probability model with proper rare-event metrics (Brier score, ROC AUC, TSS); a "Sun" card on the dashboard; move PostgreSQL into Compose with a volume.
+
+**Evidence:**
+- `docs/data-sources.md`, `ml-service/flare_storm_link.py`, `ml-service/cme_transit.py`, dashboard screenshots.
