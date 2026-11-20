@@ -1,5 +1,6 @@
 import pandas as pd
 import requests
+import time
 
 KP_URL = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
 
@@ -13,9 +14,7 @@ def load_kp_gfz(start: str, end: str, definitive_only: bool = True) -> pd.Series
     params = {"start": start, "end": end, "index": "Kp"}
     if definitive_only:
         params["status"] = "def"
-    response = requests.get(GFZ_URL, params=params, headers=HEADERS, timeout=30)
-    response.raise_for_status()
-    data = response.json()
+    data = get_json(GFZ_URL, params)
 
     series = pd.Series(
         data["Kp"],
@@ -23,6 +22,22 @@ def load_kp_gfz(start: str, end: str, definitive_only: bool = True) -> pd.Series
         name="kp",
     )
     return series[series >= 0].sort_index()
+
+def get_json(url, params=None, retries=5, timeout=60):
+    last = None
+    for attempt in range(1, retries + 1):
+        try:
+            response = requests.get(url, params=params, headers=HEADERS, timeout=timeout)
+            response.raise_for_status()
+            return response.json()
+        except requests.HTTPError as e:
+            if e.response is not None and e.response.status_code < 500:
+                raise          # 4xx повторювати марно
+            last = e
+        except (requests.RequestException, ValueError) as e:
+            last = e
+        time.sleep(2 * attempt)
+    raise last
 
 if __name__ == "__main__":
     kp = load_kp_gfz("2021-01-01T00:00:00Z", "2025-12-31T23:59:59Z")
