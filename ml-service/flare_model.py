@@ -24,10 +24,21 @@ fl["time"] = pd.to_datetime(fl["time"], utc=True).dt.tz_localize(None)
 fl["day"] = fl["time"].dt.normalize()
 fl["cls"] = fl["flare_class"].astype(str).str[0]
 
+FLUX = {"A": 1e-8, "B": 1e-7, "C": 1e-6, "M": 1e-5, "X": 1e-4}
+
+
+def class_flux(s):
+    try:
+        return FLUX[s[:1]] * float(s[1:])
+    except (KeyError, ValueError):
+        return np.nan
+
+
+fl["flux"] = fl["flare_class"].astype(str).map(class_flux)
 days = pd.date_range("1996-01-01", fl["day"].max(), freq="D")
-m = fl[fl["cls"].isin(["M", "X"])].groupby("day").size().reindex(days, fill_value=0)
-c = fl[fl["cls"].isin(["C", "M", "X"])].groupby("day").size().reindex(days, fill_value=0)
-peak = np.log10(fl.groupby("day")["xrsb_irrad"].max().reindex(days).clip(lower=1e-9)).fillna(-9)
+m = (fl[fl["cls"].isin(["M", "X"])].groupby("day").size().reindex(days, fill_value=0) > 0).astype(int)
+c = (fl[fl["cls"].isin(["C", "M", "X"])].groupby("day").size().reindex(days, fill_value=0) > 0).astype(int)
+peak = np.log10(fl.groupby("day")["flux"].max().reindex(days).clip(lower=1e-9)).fillna(-9)
 ssn = ssn_raw.reindex(days)
 
 X = pd.DataFrame(index=days)
@@ -101,6 +112,29 @@ calib = pd.DataFrame({"p": best, "y": yte}).groupby(bins, observed=True).agg(
     передбачено=("p", "mean"), фактично=("y", "mean"), діб=("y", "size"))
 print("\nКалібрування градієнтного бустингу (тест):")
 print(calib.round(3).to_string())
+
+
+def fit_eval(cols, frame):
+    tr, te = frame[:TRAIN_END], frame[TEST_START:]
+    mdl = make_pipeline(StandardScaler(), LogisticRegression(max_iter=3000)).fit(tr[cols], tr["y"])
+    p = mdl.predict_proba(te[cols])[:, 1]
+    return round(1 - brier_score_loss(te["y"], p) / bs_clim, 3), round(roc_auc_score(te["y"], p), 3)
+
+
+SSN_COLS = ["ssn", "ssn_27d", "ssn_d3"]
+lagged = data.copy()
+for col in SSN_COLS:
+    lagged[col] = X[col].shift(21).reindex(lagged.index)
+lagged = lagged.dropna()
+variants = {
+    "усі ознаки": (FEATURES, data),
+    "без чисел плям": ([f for f in FEATURES if f not in SSN_COLS], data),
+    "плями із запізненням 21 доба": (FEATURES, lagged),
+}
+print("\nДослід: роль чисел плям (логістична регресія, тест):")
+for name, (cols, frame) in variants.items():
+    bss, auc = fit_eval(cols, frame)
+    print(f"{name:32s} BSS {bss:.3f}   ROC AUC {auc:.3f}")
 
 (ROOT / "docs").mkdir(exist_ok=True)
 res.to_csv(ROOT / "docs" / "flare_model_results.csv", index=False)
