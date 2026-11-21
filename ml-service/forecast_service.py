@@ -6,6 +6,7 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 
 import compare_models as cm
+import flare_live
 
 LOADERS = {
     "chronos-bolt-small": (
@@ -60,3 +61,10 @@ def forecast(req: ForecastRequest):
                 pipe, fn = loaded[name]
                 result[name] = [float(v) for v in fn(pipe, ctx, req.horizon)]
     return {"forecasts": result}
+
+@app.get("/flare/forecast")
+def flare_forecast():
+    try:
+        return flare_live.predict_today()
+    except Exception as e:
+        raise HTTPException(status_code=502, detail=f"Не вдалося порахувати прогноз спалахів: {e}")
