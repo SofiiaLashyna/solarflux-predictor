@@ -15,4 +15,6 @@ public interface FlareForecastRepository extends JpaRepository<FlareForecast, Lo
     Optional<FlareForecast> findByTargetDay(LocalDate targetDay);
 
     List<FlareForecast> findAllByOrderByTargetDayDesc(Pageable pageable);
+
+    List<FlareForecast> findByActualIsNull();
 }

@@ -78,6 +78,7 @@ def predict_today(now=None):
             "probability": round(probability(feats), 4),
             "features": {k: float(v) for k, v in feats.items()},
             "flares_in_window": len(events),
+            "recent_m_days": {d.strftime("%Y-%m-%d"): int(v) for d, v in m.tail(10).items()},
             "sources": {"ncei_before": str(cut.date()), "swpc_from": str(cut.date())},
             "model": "logistic-regression, flare-history features",
             "trained_until": MODEL["trained_until"],

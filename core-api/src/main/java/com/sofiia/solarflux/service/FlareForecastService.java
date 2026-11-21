@@ -27,7 +27,8 @@ public class FlareForecastService {
 
     @JsonIgnoreProperties(ignoreUnknown = true)
     record FlareResponse(@JsonProperty("target_day") String targetDay, double probability,
-                         Map<String, Double> features, Noaa noaa) {
+                         Map<String, Double> features, Noaa noaa,
+                         @JsonProperty("recent_m_days") Map<String, Integer> recentMDays) {
     }
 
     private final FlareForecastRepository repository;
@@ -69,12 +70,14 @@ public class FlareForecastService {
             }
             forecast = repository.save(forecast);
 
-            Double yesterday = r.features() == null ? null : r.features().get("m_1d");
-            if (yesterday != null) {
-                repository.findByTargetDay(target.minusDays(1)).ifPresent(prev -> {
-                    prev.setActual(yesterday > 0);
-                    repository.save(prev);
-                });
+            if (r.recentMDays() != null) {
+                for (FlareForecast f : repository.findByActualIsNull()) {
+                    Integer flag = r.recentMDays().get(f.getTargetDay().toString());
+                    if (flag != null && f.getTargetDay().isBefore(target)) {
+                        f.setActual(flag > 0);
+                        repository.save(f);
+                    }
+                }
             }
             log.info("Прогноз спалахів на {}: {}%", target, Math.round(r.probability() * 100));
             return forecast;
