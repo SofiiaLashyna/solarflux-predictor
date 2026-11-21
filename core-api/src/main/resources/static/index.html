@@ -211,25 +211,30 @@
     }
 
     async function loadFlares() {
-        const res = await fetch('/api/flares/forecast?limit=14');
-        const rows = res.ok ? await res.json() : [];
         const now = document.getElementById('flareNow');
-        if (!rows.length) { now.textContent = 'Поки немає прогнозів спалахів'; return; }
-        const r = rows[0];
-        now.innerHTML = `Прогноз на ${r.targetDay}: наша модель <b>${(r.probability * 100).toFixed(0)}%</b>` +
-            (r.noaaMProbability != null ? `; NOAA (M-клас): <b>${r.noaaMProbability}%</b> (на ${r.noaaDate})` : '');
-        document.querySelector('#flareTable tbody').innerHTML = rows.map(x => `<tr><td>${x.targetDay}</td>
-            <td>${(x.probability * 100).toFixed(0)}%</td>
-            <td>${x.noaaMProbability != null ? x.noaaMProbability + '%' : '—'}</td>
-            <td>${x.actual == null ? '—' : (x.actual ? 'був M+' : 'не було')}</td></tr>`).join('');
-        const done = rows.filter(x => x.actual != null);
-        const both = done.filter(x => x.noaaMProbability != null && x.noaaDate === x.targetDay);
-        const brier = (arr, p) => arr.length
-            ? (arr.reduce((s, x) => s + (p(x) - (x.actual ? 1 : 0)) ** 2, 0) / arr.length).toFixed(3) : '—';
-        document.getElementById('flareScore').textContent =
-            `Brier на підтверджених добах: наша ${brier(done, x => x.probability)} (n = ${done.length}). ` +
-            `Де є прогноз NOAA на ту саму добу: наша ${brier(both, x => x.probability)}, ` +
-            `NOAA ${brier(both, x => x.noaaMProbability / 100)} (n = ${both.length}). Поки вибірка мала, це ілюстрація.`;
+        try {
+            const res = await fetch('/api/flares/forecast?limit=14');
+            if (!res.ok) throw new Error('API відповів ' + res.status);
+            const rows = await res.json();
+            if (!rows.length) { now.textContent = 'Поки немає прогнозів спалахів'; return; }
+            const r = rows[0];
+            now.innerHTML = `Прогноз на ${r.targetDay}: наша модель <b>${(r.probability * 100).toFixed(0)}%</b>` +
+                (r.noaaMProbability != null ? `; NOAA (M-клас): <b>${r.noaaMProbability}%</b> (на ${r.noaaDate})` : '');
+            document.querySelector('#flareTable tbody').innerHTML = rows.map(x => `<tr><td>${x.targetDay}</td>
+                <td>${(x.probability * 100).toFixed(0)}%</td>
+                <td>${x.noaaMProbability != null ? x.noaaMProbability + '%' : '—'}</td>
+                <td>${x.actual == null ? '—' : (x.actual ? 'був M+' : 'не було')}</td></tr>`).join('');
+            const done = rows.filter(x => x.actual != null);
+            const both = done.filter(x => x.noaaMProbability != null && x.noaaDate === x.targetDay);
+            const brier = (arr, p) => arr.length
+                ? (arr.reduce((s, x) => s + (p(x) - (x.actual ? 1 : 0)) ** 2, 0) / arr.length).toFixed(3) : '—';
+            document.getElementById('flareScore').textContent =
+                `Brier на підтверджених добах: наша ${brier(done, x => x.probability)} (n = ${done.length}). ` +
+                `Де є прогноз NOAA на ту саму добу: наша ${brier(both, x => x.probability)}, ` +
+                `NOAA ${brier(both, x => x.noaaMProbability / 100)} (n = ${both.length}). Поки вибірка мала, це ілюстрація.`;
+        } catch (e) {
+            now.textContent = 'Не вдалося завантажити прогноз спалахів: ' + e.message;
+        }
     }
 
     async function loadStepAccuracy() {
@@ -393,6 +398,7 @@
     document.getElementById('baseSelect').onchange = e => { currentBase = e.target.value; showForecast(); };
     connectLive();
     loadKp();
+    loadFlares();
     loadModels();
     loadStepAccuracy();
 </script>
