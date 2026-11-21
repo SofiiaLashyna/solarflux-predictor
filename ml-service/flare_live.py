@@ -21,8 +21,9 @@ def probability(features):
 
 
 def ncei_events(since):
-    path = max((HERE / "data").glob("sci_xrsf-l2-flrpt_geo_s1995*.csv"))
-    fl = pd.read_csv(path, usecols=["time", "flare_class"])
+    live = sorted((HERE / "data" / "live").glob("sci_xrsf-l2-flrpt_geo_y*.csv"))
+    paths = live or [max((HERE / "data").glob("sci_xrsf-l2-flrpt_geo_s1995*.csv"))]
+    fl = pd.concat([pd.read_csv(p, usecols=["time", "flare_class"]) for p in paths], ignore_index=True)
     fl["time"] = pd.to_datetime(fl["time"], utc=True).dt.tz_localize(None)
     fl = fl[fl["time"] >= since]
     cls = fl["flare_class"].astype(str)
@@ -63,7 +64,7 @@ def predict_today(now=None):
     ncei = ncei_events(start)
     if ncei.empty:
         raise RuntimeError("У файлі NCEI немає свіжих спалахів: оновіть файл")
-    cut = ncei["day"].max()                     
+    cut = ncei["day"].max()
     first_full = swpc["day"].min() + pd.Timedelta(days=1)
     if first_full > cut:
         raise RuntimeError(f"Розрив між NCEI (до {cut:%Y-%m-%d}) і SWPC (з {first_full:%Y-%m-%d}): оновіть файл NCEI")
