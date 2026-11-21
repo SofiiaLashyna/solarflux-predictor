@@ -1,14 +1,26 @@
 import pandas as pd
 import requests
 import time
+import io
 
 KP_URL = "https://services.swpc.noaa.gov/json/planetary_k_index_1m.json"
-
-
 GFZ_URL = "https://kp.gfz.de/app/json/"
-
+SILSO_URL = "https://www.sidc.be/SILSO/INFO/sndtotcsv.php"
 
 HEADERS = {"User-Agent": "solarflux-predictor/0.1 (student project)"}
+
+SILSO_COLS = ["year", "month", "day", "decimal_year", "ssn", "ssn_std", "n_obs", "provisional"]
+
+
+def load_ssn():
+    """Щоденне число плям WDC-SILSO; значення -1 (немає даних) прибрано."""
+    response = requests.get(SILSO_URL, headers=HEADERS, timeout=60)
+    response.raise_for_status()
+    if not response.text[:4].strip().isdigit():
+        raise ValueError("SILSO повернув не CSV: " + response.text[:80])
+    df = pd.read_csv(io.StringIO(response.text), sep=";", names=SILSO_COLS)
+    df["date"] = pd.to_datetime(df[["year", "month", "day"]])
+    return df[df["ssn"] >= 0].set_index("date")["ssn"]
 
 def load_kp_gfz(start: str, end: str, definitive_only: bool = True) -> pd.Series:
     params = {"start": start, "end": end, "index": "Kp"}
