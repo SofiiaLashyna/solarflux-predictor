@@ -97,7 +97,8 @@
 - Repository hygiene: removed superseded scripts, raw datasets excluded from Git, retry logic for HTTP responses that break mid-transfer, a data-sources document with licences and credits.
 - Solar-flare work (requirement for lab 3):
   - Kp autocorrelation shows a clear 27-day peak (about 0.17 against about 0.06 on neighbouring lags) and a second peak at 54 days, consistent with recurrence from solar rotation.
-  - After M/X-class flares (5,277 events, 2000–2025, NCEI GOES flare report) the probability of Kp ≥ 5 in the following 24 h windows is 1.4–1.7 times the same-year base rate, highest 48–72 h after the flare (consistent with CME transit times). Pre-flare control windows added to check for clustering; results to be recorded.
+  -   - After M/X-class flares (5,277 events, 2000–2025) the probability of Kp ≥ 5 in the following 24 h windows is 0.18 (0–24 h), 0.19 (24–48 h), 0.215 (48–72 h) and 0.20 (72–96 h), against 0.162–0.168 in the two 24 h windows before the flare and a same-year base rate of 0.126. Part of the elevation over the base rate is activity clustering; relative to the window just before the flare the excess is +1.2, +2.3, +4.7 and +3.5 percentage points, peaking at 48–72 h as expected from CME transit times. Flares are not independent events, so no confidence intervals are given.
+  - Daily full-disk model for the probability of an M+ flare tomorrow (features: flare counts over 1, 3 and 27 days, peak flux, sunspot number and its 27-day mean and 3-day change, activity one solar rotation earlier; trained 1996–2019, tested 2020–Oct 2026 on 2,496 days). Logistic regression: Brier 0.134, ROC AUC 0.87, TSS 0.53, against 0.168 / 0.79 / 0.37 for the 27-day flare rate and 0.168 / 0.74 / 0.48 for yesterday's flare; gradient boosting performs the same and is well calibrated. The test period has a much higher M+ rate (31% of days) than the training period (19%). The model mostly captures how active the Sun currently is; it cannot anticipate flares from a quiet state.
   - Explored NOAA SWPC solar regions and official flare probabilities, NASA DONKI (flares, CMEs, storms, linked events) and SILSO sunspot numbers. DONKI moved to a new API on 30 Sep 2026 (old endpoints no longer return data); the client was updated.
   - Implemented a CME transit-time estimate (constant speed vs drag-based model) and compared it with NASA's WSA-ENLIL estimate on one event (May 2024): errors about −12 h, +1 h and −4 h respectively against the observed shock; a single event, so calibration on 2021–2025 CMEs is the next step.
 
@@ -108,7 +109,7 @@
 - Live accuracy is still based on few points.
 
 **Next:**
-- Collect CMEs for 2021–2025 from DONKI and calibrate the drag-based model against constant speed and ENLIL; daily flare-probability model with proper rare-event metrics (Brier score, ROC AUC, TSS); a "Sun" card on the dashboard; move PostgreSQL into Compose with a volume.
+- Paired bootstrap on the 146 test events that have an ENLIL estimate (events resampled independently, so the intervals are optimistic): calibrated drag-based model reduces the mean absolute error of the constant-speed estimate by 7.1 h (95% CI 5.0–9.3); calibrating the parameters instead of using typical values reduces it by a further 1.7 h (0.3–3.2), mostly by cutting large errors (the median error did not improve); NASA's WSA-ENLIL remains 2.8 h more accurate than the calibrated two-parameter model (1.3–4.3).
 
 **Evidence:**
 - `docs/data-sources.md`, `ml-service/flare_storm_link.py`, `ml-service/cme_transit.py`, dashboard screenshots.
