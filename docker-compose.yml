@@ -5,3 +5,24 @@ services:
     ports:
       - "9092:9092"
     restart: unless-stopped
+
+  postgres:
+    image: postgres:16
+    container_name: solarflux-postgres
+    environment:
+      POSTGRES_USER: solarflux
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-changeme}
+      POSTGRES_DB: solarflux
+    ports:
+      - "5433:5432"
+    volumes:
+      - solarflux-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U solarflux -d solarflux" ]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    restart: unless-stopped
+
+volumes:
+  solarflux-pgdata:
