@@ -64,25 +64,21 @@ GFZ Kp index --(hourly sync, JDBC upsert)--> PostgreSQL <--> Core API (Spring Bo
 | ML | Python, FastAPI, PyTorch (CPU build), chronos-forecasting, timesfm |
 | Database | PostgreSQL 16 (Docker) |
 | Frontend | HTML/JS, Chart.js, D3 |
-| Infrastructure | Docker, Docker Compose (Kafka so far) |
+| Infrastructure | Docker, Docker Compose (PostgreSQL and Kafka |
 
 ## Running locally (Windows, PowerShell)
 
 ```powershell
-# 1. PostgreSQL (first time only; development credentials)
-docker run --name solarflux-postgres -e POSTGRES_USER=solarflux -e POSTGRES_PASSWORD=changeme -e POSTGRES_DB=solarflux -p 5433:5432 -d postgres:16
-
-# 2. Every time: database and Kafka
-docker start solarflux-postgres
+# 1. Database and Kafka (PostgreSQL data lives in the named volume solarflux-pgdata)
 docker compose up -d
 
-# 3. ML service (in ml-service, with a Python virtual environment)
+# 2. ML service (in ml-service, with a Python virtual environment)
 pip install torch --index-url https://download.pytorch.org/whl/cpu
 pip install -r requirements.txt
 python -m uvicorn forecast_service:app --host 127.0.0.1 --port 8000
 
-# 4. Core API: run SolarFluxApplication from IntelliJ (or mvn spring-boot:run in core-api)
-# 5. Open http://localhost:8080
+# 3. Core API: run SolarFluxApplication from IntelliJ (or mvn spring-boot:run in core-api)
+# 4. Open http://localhost:8080
 ```
 
 ## Data sources
@@ -103,7 +99,8 @@ Raw datasets are not stored in the repository. See [docs/data-sources.md](./docs
 | Multithreading | partial (scheduled background jobs, locks) |
 | Docker | partial (Kafka in Compose, PostgreSQL standalone) |
 | SPA | partial (plain HTML/JS) |
-| GoF patterns, servlet filter, unit tests | planned |
+| GoF patterns (Strategy, Factory, Observer) | done |
+| Servlets (filters, servlet), unit tests | done |
 
 ## Repository structure
 
