@@ -80,6 +80,11 @@
     <p id="stepInfo" class="muted"></p>
 </div>
 
+<div class="card" id="researchCard">
+    <h3>Сонячна активність: результати досліджень</h3>
+    <div id="researchBody" class="muted">Завантаження…</div>
+</div>
+
 <script>
     Chart.defaults.color = '#c9d1e8';
     Chart.defaults.borderColor = '#263056';
@@ -235,6 +240,51 @@
                 `NOAA ${brier(both, x => x.noaaMProbability / 100)} (n = ${both.length}). Поки вибірка мала, це ілюстрація.`;
         } catch (e) {
             now.textContent = 'Не вдалося завантажити прогноз спалахів: ' + e.message;
+        }
+    }
+
+    async function loadResearch() {
+        const body = document.getElementById('researchBody');
+        try {
+            const res = await fetch('/solar_research.json');
+            if (!res.ok) throw new Error('файл відповів ' + res.status);
+            const d = await res.json();
+            const f3 = v => Number(v).toFixed(3);
+            const table = (head, rows) => `<div style="overflow-x:auto"><table><thead><tr>` +
+                head.map(h => `<th>${h}</th>`).join('') + `</tr></thead><tbody>` +
+                rows.map(r => `<tr>${r.map(c => `<td>${c}</td>`).join('')}</tr>`).join('') + `</tbody></table></div>`;
+
+            const lags = Object.keys(d.kp_recurrence);
+            const recurrence = `<h4>Обертання Сонця: автокореляція Kp (2021–2025)</h4>` +
+                table(['Лаг, діб', ...lags], [['Автокореляція', ...lags.map(l => f3(d.kp_recurrence[l]))]]) +
+                `<p class="muted">Горб на 26–28 і 54 добах (≈ один і два оберти Сонця) узгоджується з повторюваністю активності. Абсолютні значення завищені трендом зростання активності.</p>`;
+
+            const storm = `<h4>Спалахи M/X і геомагнітні бурі (Kp ≥ 5)</h4>` +
+                table(['Вікно відносно піку спалаху', 'Спалахів', 'P(буря)', 'База того ж року', 'Відношення'],
+                    d.flare_storm.map(r => [r.window, r.flares, f3(r.p_after), f3(r.p_base), r.ratio.toFixed(2)])) +
+                `<p class="muted">Вікна до спалаху вже вищі за базу, тож частина ефекту це кластеризація активності. Відносно вікна безпосередньо перед спалахом надлишок з'являється із затримкою, максимум через 48–72 години.</p>`;
+
+            const models = `<h4>Імовірність спалаху M+ на наступну добу (тест 2020–2026)</h4>` +
+                table(['Метод', 'Brier ↓', 'BSS ↑', 'ROC AUC ↑'],
+                    d.flare_models.map(r => [r.method, f3(r.brier), f3(r.bss), f3(r.auc)])) +
+                `<p class="muted">Готова модель Chronos-Bolt без донавчання наближається до нашої регресії; її імовірності обмежені діапазоном 0.05–0.95.</p>`;
+
+            const n = d.flare_vs_noaa;
+            const noaa = `<h4>Наш прогноз проти NOAA (${n.from} – ${n.to}, ${n.days} діб, зі спалахом M+: ${n.event_days})</h4>` +
+                table(['Метод', 'Brier ↓'], Object.entries(n.brier).map(([k, v]) => [k, f3(v)])) +
+                `<p class="muted">На такій вибірці різниці між методами не значущі. Наша модель для цього порівняння навчена лише до 2019 року.</p>`;
+
+            const cme = `<h4>Час прильоту CME до Землі: помилка, год (тест 2024–2025, події з оцінкою ENLIL)</h4>` +
+                table(['Метод', 'Подій', 'MAE ↓', 'Медіана |помилки|', 'Зсув'],
+                    d.cme.map(r => [r.method, r.n, r.mae.toFixed(1), r.median.toFixed(1), r.bias.toFixed(1)])) +
+                `<p class="muted">Це оцінка часу за умови, що викид долетів, а не прогноз того, чи долетить він.</p>`;
+
+            body.className = '';
+            body.innerHTML = recurrence + storm + models + noaa + cme +
+                `<p class="muted">Оновлено: ${d.generated}. Джерела: GFZ Potsdam (Kp), NOAA NCEI і SWPC (спалахи, прогнози), NASA CCMC DONKI (CME).</p>`;
+        } catch (e) {
+            body.textContent = 'Не вдалося завантажити результати: ' + e.message;
+            console.error(e);
         }
     }
 
@@ -405,6 +455,7 @@
     connectLive();
     loadKp();
     loadFlares();
+    loadResearch();
     loadModels();
     loadStepAccuracy();
 </script>
