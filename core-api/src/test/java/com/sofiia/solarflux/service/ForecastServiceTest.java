@@ -1,9 +1,9 @@
 package com.sofiia.solarflux.service;
 
+import com.sofiia.solarflux.forecast.ForecastBatch;
+import com.sofiia.solarflux.forecast.ForecastObserver;
 import com.sofiia.solarflux.forecast.ForecastStrategy;
 import com.sofiia.solarflux.forecast.PersistenceStrategy;
-import com.sofiia.solarflux.messaging.ForecastCreatedEvent;
-import com.sofiia.solarflux.messaging.ForecastEventPublisher;
 import com.sofiia.solarflux.model.Observation;
 import com.sofiia.solarflux.model.Prediction;
 import com.sofiia.solarflux.repository.ObservationRepository;
@@ -26,6 +26,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -45,11 +46,13 @@ class ForecastServiceTest {
     @Mock
     PredictionService predictionService;
     @Mock
-    ForecastEventPublisher eventPublisher;
+    ForecastObserver observer;
+    @Mock
+    ForecastObserver secondObserver;
     @Captor
     ArgumentCaptor<List<Prediction>> predictionsCaptor;
     @Captor
-    ArgumentCaptor<ForecastCreatedEvent> eventCaptor;
+    ArgumentCaptor<ForecastBatch> batchCaptor;
 
     private record FakeStrategy(String modelName, List<Double> values, boolean fails) implements ForecastStrategy {
         @Override
@@ -71,9 +74,9 @@ class ForecastServiceTest {
                 eq(Observation.ObservationType.KP_INDEX), any(Pageable.class))).thenReturn(newestFirst);
     }
 
-    private ForecastService serviceWith(ForecastStrategy... strategies) {
+    private ForecastService serviceWith(List<ForecastObserver> observers, ForecastStrategy... strategies) {
         return new ForecastService(observationRepository, predictionRepository, predictionService,
-                eventPublisher, List.of(strategies), HORIZON, CONTEXT);
+                observers, List.of(strategies), HORIZON, CONTEXT);
     }
 
     @Test
@@ -81,7 +84,7 @@ class ForecastServiceTest {
         stubObservations(CONTEXT);
         when(predictionRepository.findLatestBaseTime(anyString())).thenReturn(Optional.empty());
 
-        int saved = serviceWith(new PersistenceStrategy(),
+        int saved = serviceWith(List.of(observer), new PersistenceStrategy(),
                 new FakeStrategy("fake", List.of(5.0, 6.0), false)).runIfNeeded();
 
         assertThat(saved).isEqualTo(4);
@@ -94,7 +97,7 @@ class ForecastServiceTest {
         assertThat(first.getBaseTime()).isEqualTo(NEWEST);
         assertThat(first.getTargetTime()).isEqualTo(NEWEST.plus(STEP));
         assertThat(first.getPredictedValue()).isEqualTo(1.0);   // найновіше значення в контексті
-        verify(eventPublisher).publish(any(ForecastCreatedEvent.class));
+        verify(observer).onForecastsStored(any(ForecastBatch.class));
     }
 
     @Test
@@ -103,7 +106,7 @@ class ForecastServiceTest {
         when(predictionRepository.findLatestBaseTime("persistence")).thenReturn(Optional.of(NEWEST));
         when(predictionRepository.findLatestBaseTime("fake")).thenReturn(Optional.empty());
 
-        int saved = serviceWith(new PersistenceStrategy(),
+        int saved = serviceWith(List.of(observer), new PersistenceStrategy(),
                 new FakeStrategy("fake", List.of(5.0, 6.0), false)).runIfNeeded();
 
         assertThat(saved).isEqualTo(2);
@@ -116,21 +119,33 @@ class ForecastServiceTest {
         stubObservations(CONTEXT);
         when(predictionRepository.findLatestBaseTime(anyString())).thenReturn(Optional.empty());
 
-        int saved = serviceWith(new PersistenceStrategy(),
+        int saved = serviceWith(List.of(observer), new PersistenceStrategy(),
                 new FakeStrategy("broken", List.of(), true)).runIfNeeded();
 
         assertThat(saved).isEqualTo(2);
-        verify(eventPublisher).publish(eventCaptor.capture());
-        assertThat(eventCaptor.getValue().models()).containsExactly("persistence");
+        verify(observer).onForecastsStored(batchCaptor.capture());
+        assertThat(batchCaptor.getValue().models()).containsExactly("persistence");
+    }
+
+    @Test
+    void aFailingObserverDoesNotStopTheOthers() {
+        stubObservations(CONTEXT);
+        when(predictionRepository.findLatestBaseTime(anyString())).thenReturn(Optional.empty());
+        doThrow(new RuntimeException("boom")).when(observer).onForecastsStored(any(ForecastBatch.class));
+
+        int saved = serviceWith(List.of(observer, secondObserver), new PersistenceStrategy()).runIfNeeded();
+
+        assertThat(saved).isEqualTo(2);
+        verify(secondObserver).onForecastsStored(any(ForecastBatch.class));
     }
 
     @Test
     void doesNothingWithoutEnoughContext() {
         stubObservations(2);
 
-        int saved = serviceWith(new PersistenceStrategy()).runIfNeeded();
+        int saved = serviceWith(List.of(observer), new PersistenceStrategy()).runIfNeeded();
 
         assertThat(saved).isZero();
-        verifyNoInteractions(predictionService, eventPublisher);
+        verifyNoInteractions(predictionService, observer);
     }
 }

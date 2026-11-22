@@ -2,8 +2,8 @@ package com.sofiia.solarflux.service;
 
 import com.sofiia.solarflux.forecast.ForecastStrategy;
 import com.sofiia.solarflux.forecast.ForecastStrategyFactory;
-import com.sofiia.solarflux.messaging.ForecastCreatedEvent;
-import com.sofiia.solarflux.messaging.ForecastEventPublisher;
+import com.sofiia.solarflux.forecast.ForecastBatch;
+import com.sofiia.solarflux.forecast.ForecastObserver;
 import com.sofiia.solarflux.model.Observation;
 import com.sofiia.solarflux.model.Prediction;
 import com.sofiia.solarflux.repository.ObservationRepository;
@@ -32,7 +32,7 @@ public class ForecastService {
     private final ObservationRepository observationRepository;
     private final PredictionRepository predictionRepository;
     private final PredictionService predictionService;
-    private final ForecastEventPublisher eventPublisher;
+    private final List<ForecastObserver> observers;
     private final List<ForecastStrategy> strategies;
     private final int horizon;
     private final int contextLength;
@@ -42,26 +42,26 @@ public class ForecastService {
     public ForecastService(ObservationRepository observationRepository,
                            PredictionRepository predictionRepository,
                            PredictionService predictionService,
-                           ForecastEventPublisher eventPublisher,
+                           List<ForecastObserver> observers,
                            ForecastStrategyFactory factory,
                            @Value("${forecast.models}") List<String> models,
                            @Value("${forecast.horizon}") int horizon,
                            @Value("${forecast.context-length}") int contextLength) {
-        this(observationRepository, predictionRepository, predictionService, eventPublisher,
+        this(observationRepository, predictionRepository, predictionService, observers,
                 models.stream().map(factory::create).toList(), horizon, contextLength);
     }
 
     ForecastService(ObservationRepository observationRepository,
                     PredictionRepository predictionRepository,
                     PredictionService predictionService,
-                    ForecastEventPublisher eventPublisher,
+                    List<ForecastObserver> observers,
                     List<ForecastStrategy> strategies,
                     int horizon,
                     int contextLength) {
         this.observationRepository = observationRepository;
         this.predictionRepository = predictionRepository;
         this.predictionService = predictionService;
-        this.eventPublisher = eventPublisher;
+        this.observers = observers;
         this.strategies = strategies;
         this.horizon = horizon;
         this.contextLength = contextLength;
@@ -73,6 +73,16 @@ public class ForecastService {
             runIfNeeded();
         } catch (Exception e) {
             log.warn("Автопрогноз не виконано: {}", e.getMessage());
+        }
+    }
+
+    private void notifyObservers(ForecastBatch batch) {
+        for (ForecastObserver observer : observers) {
+            try {
+                observer.onForecastsStored(batch);
+            } catch (Exception e) {
+                log.warn("Спостерігач {} не впорався: {}", observer.getClass().getSimpleName(), e.getMessage());
+            }
         }
     }
 
@@ -118,7 +128,7 @@ public class ForecastService {
                 return 0;
             }
             predictionService.replaceBatch(predictions);
-            eventPublisher.publish(new ForecastCreatedEvent(base, done, predictions.size()));
+            notifyObservers(new ForecastBatch(base, predictions));
             log.info("Автопрогноз від {}: збережено {} прогнозів для {}", base, predictions.size(), done);
             return predictions.size();
         } finally {
