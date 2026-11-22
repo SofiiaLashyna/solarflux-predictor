@@ -61,3 +61,6 @@ for label, start in WINDOWS.items():
         "відношення": round(float(observed.mean() / np.nanmean(expected)), 2),
     })
 print(pd.DataFrame(rows).to_string(index=False))
+
+(DATA.parent.parent / "docs").mkdir(exist_ok=True)
+pd.DataFrame(rows).to_csv(DATA.parent.parent / "docs" / "flare_storm_link.csv", index=False)
