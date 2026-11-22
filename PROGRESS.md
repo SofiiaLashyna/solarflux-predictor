@@ -96,7 +96,9 @@
 - Dashboard: rotating Earth (D3) with an aurora ring whose size follows Kp (observed or forecast, any model, +0 … +24 h), a per-model Kp table, a responsive layout, and a Sun card (see below).
 - Repository hygiene: removed superseded scripts, raw datasets excluded from Git, retry logic for HTTP responses that break mid-transfer, `docs/data-sources.md` with licences and credits, `update_ncei.py` that downloads the current-year NCEI flare report.
 - Servlet layer: a request-logging filter, an API-key filter for write requests (`X-API-Key`) and a `/health` servlet, with unit tests.
-- Strategy and Factory patterns for forecast models: persistence is computed in Java, the other models are called through the ML service, and a failing model no longer blocks the rest; JUnit 5 and Mockito unit tests for the strategies and for `ForecastService` with mocked repositories.
+- Strategy and Factory patterns for forecast models: persistence is computed in Java, the other models are called through the ML service, and a failing model no longer blocks the rest.
+- Observer pattern for stored forecasts: `ForecastService` notifies registered observers; the Kafka publisher and a storm-alert observer (a WebSocket warning banner when any model forecasts Kp above a configurable threshold) are independent observers, and a failing observer does not stop the others. 17 unit tests with JUnit 5 and Mockito.
+- PostgreSQL moved into Docker Compose with a named volume and a health check; existing data migrated with pg_dump/pg_restore and verified by row counts, so stored forecasts now survive container recreation.
 - Solar-flare work (requirement for lab 3):
   - Kp autocorrelation shows a clear 27-day peak (about 0.17 against about 0.06 on neighbouring lags) and a second peak at 54 days, consistent with recurrence from solar rotation.
   - After M/X-class flares (5,277 events, 2000–2025) the probability of Kp ≥ 5 in the following 24 h windows is 0.18 (0–24 h), 0.19 (24–48 h), 0.215 (48–72 h) and 0.20 (72–96 h), against 0.162–0.168 in the two 24 h windows before the flare and a same-year base rate of 0.126. Part of the elevation over the base rate is activity clustering; relative to the window just before the flare the excess is +1.2, +2.3, +4.7 and +3.5 percentage points, peaking at 48–72 h as expected from CME transit times. Flares are not independent events, so no confidence intervals are given.
@@ -111,7 +113,6 @@
 - Flare forecast: NOAA is slightly better in the 30-day check, and region-level data cannot be used because SWPC's active-region file keeps only ~31 days (archiving it daily would build a history). Live flare accuracy has only a few days so far.
 - The live flare features need a recent NCEI file (`update_ncei.py`, run manually for now).
 - GPU benchmark (Colab), Lag-Llama, comparison of a pretrained zero-shot model with our regression on daily flare activity, Observer pattern, user subscriptions, full-stack Docker Compose and the final report are still to do.
-- PostgreSQL runs in a standalone container without a volume: observations can be re-synchronised from GFZ, but stored forecasts would be lost if the container is removed.
 
 **Next:**
 - Observer pattern for stored forecasts; PostgreSQL in Docker Compose with a volume; zero-shot versus regression experiment for flares; GPU run in Colab; final report.
