@@ -30,6 +30,7 @@
 <h1>☀ SolarFlux Predictor</h1>
 <p class="muted">Kp-індекс геомагнітної активності (GFZ Potsdam). Дані з PostgreSQL через core-api.</p>
 <p id="liveStatus" class="muted">⚪ Живе оновлення: підключення…</p>
+<div id="stormBanner" style="display:none; background:#5a1f2b; border:1px solid #ff6b6b; border-radius:10px; padding:.6rem 1rem; margin:.5rem 0;"></div>
 
 <div class="card">
     <h3>Kp: історія та прогноз</h3>
@@ -295,6 +296,11 @@
             if (msg.type === 'forecast.created') {
                 status.textContent = `🟢 Новий прогноз від ${fmt(msg.data.baseTime)} (отримано о ${new Date().toLocaleTimeString('uk-UA')})`;
                 await refreshAll();
+            }
+            if (msg.type === 'storm.alert') {
+                const b = document.getElementById('stormBanner');
+                b.style.display = 'block';
+                b.textContent = `⚠ Прогноз бурі: ${msg.data.model} очікує Kp ≈ ${msg.data.kp} о ${fmt(msg.data.targetTime)}`;
             }
         };
         ws.onclose = () => {

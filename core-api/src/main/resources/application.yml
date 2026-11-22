@@ -27,6 +27,9 @@ server:
 security:
   api-key: ${SOLARFLUX_API_KEY:dev-key}
 
+alerts:
+  storm-threshold: 5.0
+
 forecast:
   service-url: http://127.0.0.1:8000
   models: persistence,chronos-bolt-small,timesfm-2.5-200m,chronos-t5-small
