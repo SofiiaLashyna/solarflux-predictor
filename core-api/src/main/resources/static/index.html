@@ -56,6 +56,20 @@
 </div>
 
 <div class="card">
+    <h3>Сонце: активні області та обертання</h3>
+    <div class="globe-wrap">
+        <canvas id="sunCanvas" width="460" height="460"
+                style="flex:0 1 460px; width:100%; max-width:460px; height:auto; background:#070a16; border-radius:12px;"></canvas>
+        <div class="globe-side">
+            <p id="sunInfo"></p>
+            <input type="range" id="sunDay" min="0" max="0" value="0" step="1">
+            <p><button id="sunPlay" style="padding:.4rem .9rem; border-radius:8px; border:1px solid #2a3560; background:#1b2547; color:#e8ecff; cursor:pointer">▶ Обертання</button></p>
+            <p class="muted">Сонце обертається з періодом ≈ 27 діб (щодо Землі), тож активні області дрейфують зі сходу (ліворуч) на захід (праворуч) приблизно на 13° за добу. Розмір кружка дорівнює площі групи плям. Колір кільця дорівнює імовірності M-спалаху за оцінкою NOAA: зелений до 10%, жовтий 10–40%, червоний від 40%. Області біля центру диска небезпечніші для Землі: викид плазми летить у її бік.</p>
+        </div>
+    </div>
+</div>
+
+<div class="card">
     <h3>Сонце: імовірність спалаху класу M+ (доба UTC)</h3>
     <p id="flareNow"></p>
     <table id="flareTable">
@@ -240,6 +254,107 @@
                 `NOAA ${brier(both, x => x.noaaMProbability / 100)} (n = ${both.length}). Поки вибірка мала, це ілюстрація.`;
         } catch (e) {
             now.textContent = 'Не вдалося завантажити прогноз спалахів: ' + e.message;
+        }
+    }
+
+    let sunData = {days: [], byDay: {}};
+    let sunTimer = null;
+
+    function sunProject(latDeg, lonEastDeg, c, R) {
+        const b = latDeg * Math.PI / 180, l = lonEastDeg * Math.PI / 180;
+        return {x: c - R * Math.cos(b) * Math.sin(l), y: c - R * Math.sin(b)};
+    }
+
+    function drawSun() {
+        const canvas = document.getElementById('sunCanvas');
+        const ctx = canvas.getContext('2d');
+        const W = canvas.width, c = W / 2, R = W * 0.4;
+        const day = sunData.days[+document.getElementById('sunDay').value];
+        const regions = (sunData.byDay[day] || []).filter(r => Math.abs(r.longitude) <= 90);
+        ctx.clearRect(0, 0, W, W);
+
+        const glow = ctx.createRadialGradient(c, c, R * 0.9, c, c, R * 1.35);
+        glow.addColorStop(0, 'rgba(255,170,40,0.45)');
+        glow.addColorStop(1, 'rgba(255,170,40,0)');
+        ctx.fillStyle = glow;
+        ctx.beginPath(); ctx.arc(c, c, R * 1.35, 0, 2 * Math.PI); ctx.fill();
+
+        const disk = ctx.createRadialGradient(c - R * 0.15, c - R * 0.15, R * 0.1, c, c, R);
+        disk.addColorStop(0, '#fff3b0'); disk.addColorStop(0.7, '#ffb52e'); disk.addColorStop(1, '#e8710a');
+        ctx.fillStyle = disk;
+        ctx.beginPath(); ctx.arc(c, c, R, 0, 2 * Math.PI); ctx.fill();
+
+        ctx.strokeStyle = 'rgba(120,60,0,0.25)'; ctx.lineWidth = 1;
+        for (let lon = -60; lon <= 60; lon += 30) {
+            ctx.beginPath();
+            for (let lat = -90; lat <= 90; lat += 5) {
+                const p = sunProject(lat, lon, c, R);
+                lat === -90 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+        }
+        for (let lat = -60; lat <= 60; lat += 30) {
+            ctx.beginPath();
+            for (let lon = -90; lon <= 90; lon += 5) {
+                const p = sunProject(lat, lon, c, R);
+                lon === -90 ? ctx.moveTo(p.x, p.y) : ctx.lineTo(p.x, p.y);
+            }
+            ctx.stroke();
+        }
+
+        regions.forEach(r => {
+            const p = sunProject(r.latitude, r.longitude, c, R);
+            const rad = 4 + 0.45 * Math.sqrt(r.area || 0);
+            const prob = r.m_flare_probability || 0;
+            ctx.fillStyle = '#2a1200';
+            ctx.beginPath(); ctx.arc(p.x, p.y, rad, 0, 2 * Math.PI); ctx.fill();
+            ctx.strokeStyle = prob >= 40 ? '#ff4d4d' : prob >= 10 ? '#ffd24d' : '#6fe39a';
+            ctx.lineWidth = 2.5; ctx.stroke();
+            ctx.fillStyle = '#fff'; ctx.font = '11px sans-serif';
+            ctx.fillText(r.region, p.x + rad + 3, p.y + 4);
+        });
+
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '12px sans-serif';
+        ctx.fillText('Пн', c - 8, c - R * 1.12);
+        ctx.fillText('Схід', 6, c + 4);
+        ctx.fillText('Захід', W - 44, c + 4);
+
+        const totalArea = regions.reduce((s, r) => s + (r.area || 0), 0);
+        const maxM = regions.reduce((m, r) => Math.max(m, r.m_flare_probability || 0), 0);
+        document.getElementById('sunInfo').innerHTML = `<b>${day}</b>: активних областей ${regions.length}, ` +
+            `сумарна площа ${totalArea} мільйонних часток півсфери, найвища оцінка NOAA для M-спалаху з однієї області <b>${maxM}%</b>`;
+    }
+
+    function toggleSunPlay() {
+        const btn = document.getElementById('sunPlay');
+        if (sunTimer) { clearInterval(sunTimer); sunTimer = null; btn.textContent = '▶ Обертання'; return; }
+        btn.textContent = '⏸ Пауза';
+        sunTimer = setInterval(() => {
+            const s = document.getElementById('sunDay');
+            s.value = +s.value + 1 > +s.max ? 0 : +s.value + 1;
+            drawSun();
+        }, 400);
+    }
+
+    async function loadSun() {
+        const info = document.getElementById('sunInfo');
+        try {
+            const res = await fetch('/sun_regions.json');
+            if (!res.ok) throw new Error('файл відповів ' + res.status);
+            const rows = await res.json();
+            const byDay = {};
+            rows.forEach(r => (byDay[r.observed_date] = byDay[r.observed_date] || []).push(r));
+            const days = Object.keys(byDay).sort();
+            sunData = {days, byDay};
+            const slider = document.getElementById('sunDay');
+            slider.max = days.length - 1;
+            slider.value = days.length - 1;
+            slider.oninput = drawSun;
+            document.getElementById('sunPlay').onclick = toggleSunPlay;
+            drawSun();
+        } catch (e) {
+            info.textContent = 'Не вдалося завантажити області Сонця: ' + e.message;
+            console.error(e);
         }
     }
 
@@ -455,6 +570,7 @@
     connectLive();
     loadKp();
     loadFlares();
+    loadSun();
     loadResearch();
     loadModels();
     loadStepAccuracy();
